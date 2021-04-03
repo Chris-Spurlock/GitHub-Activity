@@ -112,6 +112,8 @@ class GitHubExtractor:
     def export_to_csv(self):
         pass
 
+# TODO: Error handling for incorrectly spelled/nonexistent users and tokens
+# TODO: Update requests depending on request_type
 if __name__ == "__main__":
     username = input("Enter GitHub username: ")
     api_token = input("Enter API token, or press Enter if no token: ")
@@ -119,6 +121,7 @@ if __name__ == "__main__":
                          "owned by the user, or 'all' for all repositories " +
                          "the user has contributed to: ")
     
+    # testing
     github_extractor = GitHubExtractor(username, api_token)
     repos = github_extractor.get_repos()
     print([repo.name for repo in repos])
