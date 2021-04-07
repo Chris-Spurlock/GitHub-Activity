@@ -64,9 +64,6 @@ class GitHubExtractor:
     
         def get_next_page(page):
             """get_next_page method for GitHubPaginator instance."""
-            body = page.json()
-            if 'message' in body and body['message'] != '':  # invalid request
-                raise Exception(body['message'])
             try:
                 next_page = page.links['next']['url']
                 print(next_page)
@@ -86,6 +83,8 @@ class GitHubExtractor:
             if type(page_json) is list:
                 response.extend(page.json())
             else:
+                if 'message' in page_json and page_json['message'] != '':  # invalid request
+                    raise Exception(page_json['message'])
                 return page_json
     
         return response
@@ -109,20 +108,21 @@ class GitHubExtractor:
 
         return repos
 
-    # TODO: See if you can limit commits to just those authored by the given user
     def get_commits(self, repo):
         """Request the given user's commits to a given repository.
         Returns a list of commit objects."""
         commits = []
-        url = BASE_URL + '/repos/{}/{}/commits'.format(self.user, repo)
+        url = BASE_URL + '/repos/{}/{}/commits?author={}'.format(
+            self.user,
+            repo,
+            self.user
+            )
         
         print('Requesting commit data for {}...'.format(repo))
         response = self.__github_request(url)
         
         for commit in response:
-            commits.append(
-                self.get_commit_data(repo, commit['sha'])
-                )
+            commits.append(self.get_commit_data(repo, commit['sha']))
 
         return commits
     
@@ -142,25 +142,34 @@ class GitHubExtractor:
             response['html_url']
             )
         
-    # TODO: Export repositories and commits to csv
     def export_to_csv(self, obj_list):
         """Convert a list of objects into a dataframe and export that dataframe
         to a csv file."""
-        pass
+        obj_type = type(obj_list[0]).__name__
+        
+        obj_df = pd.DataFrame([vars(obj) for obj in obj_list])
+        
+        obj_df.to_csv(
+            '{}-{}s-{}.csv'.format(
+                self.user,
+                obj_type,
+                datetime.today().strftime('%m-%d-%Y')
+                )
+            )
 
-# TODO: Error handling for incorrectly spelled/nonexistent users and tokens
 if __name__ == "__main__":
+    commits = []
     username = input("Enter GitHub username: ")
+    
+    # TODO: See if you can obscure user input here? (low priority)
     api_token = input("Enter API token, or press Enter if no token: ")
 
-    # testing
     github_extractor = GitHubExtractor(username, api_token)
     repos = github_extractor.get_repos()
-    print([repo.name for repo in repos])
 
-    # TODO: For each repo, get the commits for that repo
+    # TODO: add repo as attribute/field to commit
     for repo in repos:
-        commits = github_extractor.get_commits(repo.name)
-        print([commit.sha for commit in commits])
-    
-    # TODO: Once repo and commit data are both stored, export to csv
+        commits.extend(github_extractor.get_commits(repo.name))
+
+    for objects in [repos, commits]:
+        github_extractor.export_to_csv(objects)
